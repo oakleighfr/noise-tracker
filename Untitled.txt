@@ -1,0 +1,135 @@
+NOISE TRACKER — Mobile WebView Deployment Updates
+Apply these additive changes only — do NOT break existing web functionality
+
+=== 1. DARK MODE ===
+File: __root.jsx
+Wrap RootComponent content with ThemeProvider:
+<ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+  <AuthProvider>
+    {existing content}
+  </AuthProvider>
+</ThemeProvider>
+This activates existing .dark CSS variables automatically
+
+=== 2. SAFE AREAS ===
+File: __root.jsx — viewport meta tag
+Change to:
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+
+File: AppHeader.jsx — add padding top
+style={{ paddingTop: 'env(safe-area-inset-top)' }}
+
+File: new BottomTabBar — add padding bottom
+style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+
+File: main content wrapper — add all sides
+style={{
+  paddingTop: 'env(safe-area-inset-top)',
+  paddingBottom: 'env(safe-area-inset-bottom)',
+  paddingLeft: 'env(safe-area-inset-left)',
+  paddingRight: 'env(safe-area-inset-right)'
+}}
+
+=== 3. BOTTOM TAB BAR ===
+Create new component: BottomTabBar.jsx
+Style:
+position: fixed;
+bottom: 0;
+left: 0;
+right: 0;
+z-index: 50;
+padding-bottom: env(safe-area-inset-bottom);
+display: flex;
+justify-content: space-around;
+
+Each tab button: min-height: 44px; min-width: 44px;
+Preserve navigation history per tab using router state
+Re‑selecting active tab resets to that tab's root page
+
+In AppHeader.jsx:
+— Keep desktop pill nav in header (sm breakpoint and up)
+— Move mobile nav items to BottomTabBar component
+— Render BottomTabBar only on mobile
+
+=== 4. TOUCH TARGETS ===
+AppHeader.jsx — NavButton:
+h-9 → h-11
+w-9 → w-11
+
+PostRow.jsx — action buttons:
+h-8 w-8 → h-11 w-11
+
+BrandList.jsx — remove button:
+h-6 w-6 → h-9 w-9
+
+CalendarDay.jsx — day button:
+min-h-[44px]
+
+=== 5. OVERSCROLL BEHAVIOR ===
+File: index.css
+html, body {
+  overscroll-behavior: none;
+}
+
+File: _authed.jsx — main scroll containers
+Add: style={{ overscrollBehavior: 'none' }}
+
+=== 6. USER SELECTION ===
+File: index.css — @layer base
+.no-select {
+  user-select: none;
+}
+Apply .no-select class to:
+buttons, nav items, icons, UI chrome elements
+Keep default selection on: inputs, text content, links
+
+=== 7. BACK BUTTON ===
+File: AppHeader.jsx
+If pathname !== '/' show back arrow button before logo
+On click: router.history.back()
+Show full logo/title only on root paths
+
+=== 8. SCREEN TRANSITIONS ===
+File: _authed.jsx
+Import: AnimatePresence, motion from 'framer-motion'
+Wrap <Outlet /> with:
+<AnimatePresence mode="wait">
+  <motion.div
+    key={location.pathname}
+    initial={{ x: 30, opacity: 0 }}
+    animate={{ x: 0, opacity: 1 }}
+    exit={{ x: -30, opacity: 0 }}
+    transition={{ duration: 0.2 }}
+  >
+    <Outlet />
+  </motion.div>
+</AnimatePresence>
+
+=== 9. OPTIMISTIC UPDATES ===
+File: _authed/index.jsx — handleAdd
+Update local posts state immediately before await server call
+On error: rollback local state + show toast notification
+
+File: _authed/index.jsx — handleDelete
+Remove from local state immediately before await server call
+On error: restore deleted item + show toast notification
+
+=== 10. PULL-TO-REFRESH ===
+File: _authed.jsx
+Wrap main content with pull-to-refresh component
+On pull down gesture: trigger router.invalidate() to refresh data
+
+=== 11. MOBILE SELECT DROPDOWNS ===
+File: AddPostForm.jsx
+Use existing useIsMobile() hook
+If mobile: replace Radix Select with vaul Drawer bottom sheet
+If desktop: keep existing Radix Select
+
+=== 12. AUTH PAGES BACK BUTTON ===
+File: AuthLayout.jsx
+Add visible back button to top left on login/register/forgot-password pages
+On click: navigate back to previous page
+
+=== IMPORTANT ===
+All existing desktop/web functionality must remain fully working
+Test on both desktop and mobile after applying changes
