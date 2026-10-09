@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Noise Tracker</title>
+    <style>
+        :root {
+            --primary: #2e7d32;
+            --primary-light: #e8f5e9;
+            --bg: #f8faf9;
+            --card: #ffffff;
+            --text: #2d3a2e;
+            --text-muted: #666666;
+            --border: #e0e0e0;
+            --green-day: #c8e6c9;
+            --shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+        .dark {
+            --primary: #66bb6a;
+            --primary-light: #1e3a20;
+            --bg: #121c13;
+            --card: #1e2b1f;
+            --text: #e8f5e9;
+            --text-muted: #999999;
+            --border: #2a3c2b;
+            --green-day: #2e4d30;
+            --shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
+        body { background: var(--bg); color: var(--text); min-height: 100vh; padding: env(safe-area-inset-top) 16px env(safe-area-inset-bottom); transition: background 0.3s; }
+        .no-select { user-select: none; }
+        .container { max-width: 600px; margin: 0 auto; padding-top: 20px; padding-bottom: 100px; }
+
+        /* Auth Screens */
+        .auth-card { background: var(--card); border-radius: 16px; padding: 32px; box-shadow: var(--shadow); margin-top: 60px; }
+        .auth-card h1 { text-align: center; color: var(--primary); margin-bottom: 8px; }
+        .auth-card p { text-align: center; color: var(--text-muted); margin-bottom: 32px; }
+        .input-group { margin-bottom: 20px; }
+        .input-group label { display: block; margin-bottom: 8px; font-size: 14px; color: var(--text-muted); }
+        .input-group input { width: 100%; padding: 14px; border: 1px solid var(--border); border-radius: 10px; font-size: 16px; background: transparent; color: var(--text); }
+        .btn { display: block; width: 100%; padding: 14px; border: none; border-radius: 10px; font-size: 16px; cursor: pointer; margin-bottom: 12px; text-align: center; text-decoration: none; font-weight: 500; min-height: 44px; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-secondary { background: var(--primary-light); color: var(--primary); }
+        .btn-link { background: transparent; color: var(--primary); text-decoration: underline; }
+        .back-btn { display: inline-flex; align-items: center; gap: 6px; color: var(--primary); text-decoration: none; margin-bottom: 20px; cursor: pointer; min-width: 44px; min-height: 44px; }
+        .hidden { display: none !important; }
+
+        /* Header & Nav */
+        .header { display: flex; align-items: center; justify-content: space-between; padding: 16px 0; margin-bottom: 20px; }
+        .header-title { font-size: 22px; font-weight: 600; color: var(--primary); }
+        .desktop-nav { display: none; gap: 8px; }
+        .desktop-nav button { padding: 8px 16px; border-radius: 20px; border: none; background: transparent; color: var(--text); cursor: pointer; min-height: 44px; }
+        .desktop-nav button.active { background: var(--primary); color: white; }
+        .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: var(--card); border-top: 1px solid var(--border); display: flex; justify-content: space-around; padding: 8px 0; padding-bottom: env(safe-area-inset-bottom); z-index: 50; }
+        .bottom-nav button { background: transparent; border: none; color: var(--text-muted); font-size: 12px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 44px; min-height: 44px; }
+        .bottom-nav button.active { color: var(--primary); }
+        .nav-icon { font-size: 20px; }
+
+        /* Calendar */
+        .calendar-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+        .calendar-nav button { background: transparent; border: none; font-size: 20px; cursor: pointer; color: var(--primary); min-width: 44px; min-height: 44px; }
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+        .calendar-day { aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 8px; cursor: pointer; font-size: 14px; min-height: 44px; }
+        .calendar-day.empty { cursor: default; }
+        .calendar-day.has-posts { background: var(--green-day); font-weight: 500; }
+        .calendar-day.selected { background: var(--primary); color: white; }
+        .calendar-day:hover:not(.empty) { background: var(--primary-light); }
+        .weekdays { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-bottom: 8px; }
+        .weekdays div { text-align: center; font-size: 12px; color: var(--text-muted); padding: 8px 0; }
+
+        /* Cards & Sections */
+        .card { background: var(--card); border-radius: 16px; padding: 20px; margin-bottom: 20px; box-shadow: var(--shadow); }
+        .card h2 { font-size: 18px; margin-bottom: 16px; color: var(--primary); }
+        .card h3 { font-size: 16px; margin-bottom: 12px; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .stat-box { background: var(--primary-light); border-radius: 10px; padding: 16px; text-align: center; }
+        .stat-value { font-size: 20px; font-weight: 600; color: var(--primary); }
+        .stat-label { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+
+        /* Forms */
+        .form-row { margin-bottom: 16px; }
+        label { display: block; margin-bottom: 6px; font-size: 14px; color: var(--text-muted); }
+        input, select { width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 16px; background: transparent; color: var(--text); }
+        .toggle-row { display: flex; gap: 12px; margin-bottom: 16px; }
+        .toggle-btn { flex: 1; padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: transparent; cursor: pointer; text-align: center; min-height: 44px; }
+        .toggle-btn.active.normal { background: #e3f2fd; border-color: #2196f3; color: #2196f3; }
+        .toggle-btn.active.boosted { background: #fff3e0; border-color: #f57c00; color: #f57c00; }
+
+        /* Brand List */
+        .brand-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; background: var(--primary-light); border-radius: 8px; margin-bottom: 8px; }
+        .brand-info h4 { font-size: 15px; }
+        .brand-info p { font-size: 12px; color: var(--text-muted); }
+        .delete-btn { background: #ffebee; color: #c62828; border: none; border-radius: 6px; width: 36px; height: 36px; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; }
+
+        /* Post List */
+        .post-item { padding: 12px 0; border-bottom: 1px solid var(--border); }
+        .post-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+        .post-brand { font-weight: 500; font-size: 15px; }
+        .post-type { font-size: 11px; padding: 2px 8px; border-radius: 10px; background: var(--primary-light); color: var(--primary); }
+        .post-details { font-size: 13px; color: var(--text-muted); }
+        .post-earnings { font-weight: 600; text-align: right; }
+        .normal-tag { color: #2196f3; }
+        .boosted-tag { color: #f57c00; }
+
+        /* Pages */
+        .page { display: none; }
+        .page.active { display: block; }
+
+        /* Settings */
+        .settings-row { display: flex; justify-content: space-between; align-items: center; padding: 16px 0; border-bottom: 1px solid var(--border); }
+        .settings-row button { background: transparent; border: none; color: var(--primary); cursor: pointer; font-size: 16px; min-height: 44px; }
+
+        /* Toast */
+        .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: var(--primary); color: white; padding: 12px 24px; border-radius: 8px; z-index: 100; display: none; }
+        .toast.show { display: block; animation: fadeIn 0.3s; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateX(-50%) translateY(-10px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+
+        /* Desktop Styles */
+        @media (min-width: 768px) {
+            .bottom-nav { display: none; }
+            .desktop-nav { display: flex; }
+            .container { padding-bottom: 40px; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Toast Notification -->
+    <div id="toast" class="toast no-select"></div>
+
+    <!-- Auth Page -->
+    <div id="auth-page" class="page active" style="display: block;">
+        <div class="container">
+            <div class="auth-card">
+                <h1>🌿 Noise Tracker</h1>
+                <p>Track your posts & earnings easily</p>
+                
+                <div id="login-form">
+                    <div class="input-group">
+                        <label>Email</label>
+                        <input type="email" id="login-email" placeholder="your@email.com">
+                    </div>
+                    <div class="input-group">
+                        <label>Password</label>
+                        <input type="password" id="login-password" placeholder="••••••••">
+                    </div>
+                    <button class="btn btn-primary" onclick="handleLogin()">Log In</button>
+                    <button class="btn btn-link" onclick="showRegister()">Create an Account</button>
+                </div>
+
+                <div id="register-form" class="hidden">
+                    <a class="back-btn no-select" onclick="showLogin()">← Back</a>
+                    <div class="input-group">
+                        <label>Email</label>
+                        <input type="email" id="register-email" placeholder="your@email.com">
+                    </div>
+                    <div class="input-group">
+                        <label>Password</label>
+                        <input type="password" id="register-password" placeholder="At least 6 characters">
+                    </div>
+                    <div class="input-group">
+                        <label>Confirm Password</label>
+                        <input type="password" id="register-confirm" placeholder="Type it again">
+                    </div>
+                    <button class="btn btn-primary" onclick="handleRegister()">Create Account</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main App Container -->
+    <div id="main-app" class="page hidden" style="display: none;">
+        <!-- Header -->
+        <header class="header">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <a id="back-button" class="back-btn no-select hidden" onclick="goBack()">←</a>
+                <span class="header-title no-select">🌿 Noise Tracker</span>
+            </div>
+            <nav class="desktop-nav no-select">
+                <button class="nav-btn active" data-page="calendar-page" onclick="switchPage('calendar-page')">Calendar</button>
+                <button class="nav-btn" data-page="summaries-page" onclick="switchPage('summaries-page')">Summaries</button>
+                <button class="nav-btn" data-page="brands-page" onclick="switchPage('brands-page')">Brands</button>
+                <button class="nav-btn" data-page="earnings-page" onclick="switchPage('earnings-page')">Earnings</button>
+                <button class="nav-btn" data-page="settings-page" onclick="switchPage('settings-page')">Settings</button>
+            </nav>
+        </header>
+
+        <!-- Calendar Page -->
+        <div id="calendar-page" class="page active" style="display: block;">
+            <div class="container">
+                <div class="card">
+                    <div class="calendar-nav no-select">
+                        <button onclick="changeMonth(-1)">‹</button>
+                        <h2 id="current-month">October 2026</h2>
+                        <button onclick="changeMonth(1)">›</button>
+                    </div>
+                    <div class="weekdays no-select">
+                        <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+                    </div>
+                    <div id="calendar-grid" class="calendar-grid"></div>
+                </div>
+
+                <div class="card">
+                    <h2 id="selected-date-title">Select a day to view posts</h2>
+                    <div id="posts-list"></div>
+                    <button id="add-post-toggle" class="btn btn-secondary" style="margin-top: 16px; display: none;" onclick="toggleAddPostForm()">+ Add New Post</button>
+                    
+                    <div id="add-post-form" class="hidden" style="margin-top: 20px;">
+                        <div class="form-row">
+                            <label>Brand</label>
+                            <select id="post-brand">
+                                <option value="">-- Select a brand --</option>
+                            </select>
+                        </div>
+                        <div class="form-row">
+                            <label>Rate Type</label>
+                            <div class="toggle-row no-select">
+                                <button class="toggle-btn normal active" id="rate-normal" onclick="selectRate('normal')">⚪ Normal</button>
+                                <button class="toggle-btn boosted" id="rate-boosted" onclick="selectRate('boosted')">🟡 Boosted</button>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <label>Post Link (optional)</label>
+                            <input type="url" id="post-link" placeholder="https://...">
+                        </div>
+                        <div class="form-row">
+                            <label>Views</label>
+                            <input type="number" id="post-views" placeholder="0">
+                        </div>
+                        <div class="form-row">
+                            <label>Likes (optional)</label>
+                            <input type="number" id="post-likes" placeholder="0">
+                        </div>
+                        <div class="form-row">
+                            <label>Comments (optional)</label>
+                            <input type="number" id="post-comments" placeholder="0">
+                        </div>
+                        <div class="form-row">
+                            <label>Shares/Saves (optional)</label>
+                            <input type="number" id="post-shares" placeholder="0">
+                        </div>
+                        <button class="btn btn-primary" onclick="savePost()">Save Post</button>
+                        <button class="btn btn-link" onclick="toggleAddPostForm()">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Summaries Page -->
+        <div id="summaries-page" class="page" style="display: none;">
+            <div class="container">
+                <div class="card">
+                    <h2>📊 Monthly Summary — <span id="summary-month">October 2026</span></h2>
+                    <div class="grid-2">
+                        <div class="stat-box">
+                            <div class="stat-value" id="monthly-posts">0</div>
+                            <div class="stat-label">Posts</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-value" id="monthly-views">0</div>
+                            <div class="stat-label">Total Views</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-value" id="monthly-earnings-usd">$0.00</div>
+                            <div class="stat-label">USD Earned</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-value" id="monthly-earnings-local">£0.00</div>
+                            <div class="stat-label">Local Earned</div>
+                        </div>
+                    </div>
+                    <h3 style="margin-top: 20px;">By Brand This Month</h3>
+                    <div id="monthly-brand-breakdown">
+                        <p style="color: var(--text-muted); font-size: 14px;">No posts yet — add your first one!</p>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2>📈 Yearly Summary — 2026</h2>
+                    <div class="grid-2">
+                        <div class="stat-box">
+                            <div class="stat-value" id="yearly-posts">0</div>
+                            <div class="stat-label">Total Posts</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-value" id="yearly-views">0</div>
+                            <div class="stat-label">Total Views</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-value" id="yearly-earnings-usd">$0.00</div>
+                            <div class="stat-label">USD Earned</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-value" id="yearly-earnings-local">£0.00</div>
+                            <div class="stat-label">Local Earned</div>
+                        </div>
+                    </div>
+                    <h3 style="margin-top: 20px;">By Brand This Year</h3>
+                    <div id="yearly-brand-breakdown">
+                        <p style="color: var(--text-muted); font-size: 14px;">No posts yet — keep logging your progress!</p>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2>🏆 Brand Performance</h2>
+                    <div id="brand-performance">
+                        <p style="color: var(--text-muted); font-size: 14px;">Add brands and posts to see your stats</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Brands Page -->
+        <div id="brands-page" class="page" style="display: none;">
+            <div class="container">
+                <div class="card">
+                    <h2>🏷️ Your Brands</h2>
+                    <div id="brands-list">
+                        <p style="color: var(--text-muted); font-size: 14px;">No brands added yet — add your first one below!</p>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2>Add New Brand</h2>
+                    <div class="form-row">
+                        <label>Brand Name</label>
+                        <input type="text" id="brand-name" placeholder="e.g. Noise">
+                    </div>
+                    <div class="form-row">
+                        <label>Normal Rate — $ per 1,000 views</label>
+                        <input type="number" step="0.01" id="brand-normal-rate" placeholder="1.50">
+                    </div>
+                    <div class="form-row">
+                        <label>Boosted Rate — $ per 1,000 views</label>
+                        <input type="number" step="0.01" id="brand-boosted-rate" placeholder="6.00">
+                    </div>
+                    <button class="btn btn-primary" onclick="addBrand()">+ Add Brand</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Earnings Page -->
+        <div id="earnings-page" class="page" style="display: none;">
+            <div class="container">
+                <div class="card">
+                    <h2>💰 Earnings Overview</h2>
+                    <div class="grid-2">
+                        <div class="stat-box">
+                            <div class="stat-value" id="total-normal">$0.00</div>
+                            <div class="stat-label">Normal Posts</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-value" id="total-boosted">$0.00</div>
+                            <div class="stat-label">Boosted Posts</div>
+                        </div>
+                    </div>
+                    <div class="stat-box" style="margin-top: 16px;">
+                        <div class="stat-value" id="grand-total">$0.00</div>
+                        <div class="stat-label">Grand Total Earned</div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2>📋 All Posts</h2>
+                    <div id="all-posts-list">
+                        <p style="color: var(--text-muted); font-size: 14px;">No posts logged yet</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings Page -->
+        <div id="settings-page" class="page" style="display: none;">
+            <div class="container">
+                <div class="card">
+                    <h2>⚙️ Settings</h2>
+                    <div class="settings-row">
+                        <span>Country & Currency</span>
+                        <select id="currency-select" onchange="changeCurrency()">
+                            <option value="GBP" selected>🇬🇧 United Kingdom (GBP £)</option>
+                            <option value="USD">🇺🇸 United States (USD $)</option>
+                            <option value="AUD">🇦🇺 Australia (AUD $)</option>
+                            <option value="CAD">🇨🇦 Canada (CAD $)</option>
+                        </select>
+                    </div>
+                    <div class="settings-row">
+                        <span>Dark Mode</span>
+                        <button id="dark-mode-toggle" onclick="toggleDarkMode()">Off</button>
+                    </div>
+                    <div class="settings-row">
+                        <span>Log Out</span>
+                        <button onclick="handleLogout()">Log Out</button>
+                    </div>
+                    <div class="settings-row">
+                        <span style="color: #c62828;">Clear All Data</span>
+                        <button style="color: #c62828;" onclick="clearAllData()">Clear</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Navigation -->
+        <nav class="bottom-nav no-select">
+            <button class="active" data-page="calendar-page" onclick="switchPage('calendar-page')">
+                <span class="nav-icon">📅</span>
+                <span>Calendar</span>
+            </button>
+            <button data-page="summaries-page" onclick="switchPage('summaries-page')">
+                <span class="nav-icon">📊</span>
+                <span>Summaries</span>
+            </button>
+            <button data-page="brands-page" onclick="switchPage('brands-page')">
+                <span class="nav-icon">🏷️</span>
+                <span>Brands</span>
+            </button>
+            <button data-page="earnings-page" onclick="switchPage('earnings-page')">
+                <span class="nav-icon">💰</span>
+                <span>Earnings</span>
+            </button>
+            <button data-page="settings-page" onclick="switchPage('settings-page')">
+                <span class="nav-icon">⚙️</span>
+                <span>Settings</span>
+            </button>
+        </nav>
+    </div>
+
+    <script>
+        // ========== DATA STORAGE ==========
+        let currentUser = null;
+        let brands = [];
+        let posts = [];
+        let currentDate = new Date();
+        let selectedDate = null;
+        let selectedRateType = 'normal';
+        let currentCurrency = 'GBP';
+        const exchangeRates = { GBP: 0.79, AUD: 1.52, CAD: 1.36 };
+
+        // ========== INITIALIZE ==========
+        init();
+        function init() {
+            const savedUser = localStorage.getItem('noiseTracker_currentUser');
+            if (savedUser) {
+                currentUser = JSON.parse(savedUser);
+                loadUserData();
+                showMainApp();
+            }
+            loadDarkMode();
+            renderCalendar();
+            updateAllSummaries();
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+
+        // ========== AUTH ==========
+        function showRegister() {
+            document.getElementById('login-form').classList.add('hidden');
+            document.getElementById('register-form').classList.remove('hidden');
+        }
+        function showLogin() {
+            document.getElementById('register-form').classList.add('hidden');
+            document.getElementById('login-form').classList.remove('hidden');
+        }
+        function handleRegister() {
+            const email = document.getElementById('register-email').value.trim();
+            const password = document.getElementById('register-password').value;
+            const confirm = document.getElementById('register-confirm').value;
+            
+            if (!email || !password) { showToast('Please fill in all fields'); return; }
+            if (password.length < 6) { showToast('Password must be at least 6 characters'); return; }
+            if (password !== confirm) { showToast('Passwords do not match'); return; }
+            
+            const users = JSON.parse(localStorage.getItem('noiseTracker_users') || '{}');
+            if (users[email]) { showToast('An account with this email already exists'); return; }
+            
+            users[email] = { password, created: new Date().toISOString() };
+            localStorage.setItem('noiseTracker_users', JSON.stringify(users));
+            
+            currentUser = { email };
+            localStorage.setItem('noiseTracker_currentUser', JSON.stringify(currentUser));
+            initUserData();
+            showToast('Account created successfully! 🎉');
+            showMainApp();
+        }
+        function handleLogin() {
+            const email = document.getElementById('login-email').value.trim();
+            const password = document.getElementById('login-password').value;
+            
+            const users = JSON.parse(localStorage.getItem('noiseTracker_users') || '{}');
+            if (!users[email] || users[email].password !== password) {
+                showToast('Invalid email or password');
+                return;
+            }
+            
+            currentUser = { email };
+            localStorage.setItem('noiseTracker_currentUser', JSON.stringify(currentUser));
+            loadUserData();
+            showToast('Welcome back! ✨');
+            showMainApp();
+        }
+        function handleLogout() {
+            localStorage.removeItem('noiseTracker_currentUser');
+            currentUser = null;
+            brands = [];
+            posts = [];
+            document.getElementById('main-app').classList.add('hidden');
+            document.getElementById('main-app').style.display = 'none';
+            document.getElementById('auth-page').classList.add('active');
+            document.getElementById('auth-page').style.display = 'block';
+            showToast('Logged out successfully');
+        }
+        function showMainApp() {
+            document.getElementById('auth-page').style.display = 'none';
+            document.getElementById('main-app').classList.remove('hidden');
+            document.getElementById('main-app').style.display = 'block';
+            updateBrandDropdown();
+            renderBrandsList();
+            renderAllPosts();
+        }
+
+        // ========== DATA MANAGEMENT ==========
+        function getUserKey() {
+            return 'noiseTracker_' + currentUser.email;
+        }
+        function initUserData() {
+            const key = getUserKey();
+            localStorage.setItem(key + '_brands', '[]');
+            localStorage.setItem(key + '_posts', '[]');
+            localStorage.setItem(key + '_currency', 'GBP');
+        }
+        function loadUserData() {
+            const key = getUserKey();
+            brands = JSON.parse(localStorage.getItem(key + '_brands') || '[]');
+            posts = JSON.parse(localStorage.getItem(key + '_posts') || '[]');
+            currentCurrency = localStorage.getItem(key + '_currency') || 'GBP';
+            document.getElementById('currency-select').value = currentCurrency;
+        }
+        function saveBrands() {
+            localStorage.setItem(getUserKey() + '_brands', JSON.stringify(brands));
+        }
+        function savePosts() {
+            localStorage.setItem(getUserKey() + '_posts', JSON.stringify(posts));
+        }
+        function changeCurrency() {
+            currentCurrency = document.getElementById('currency-select').value;
+            localStorage.setItem(getUserKey() + '_currency', currentCurrency);
+            updateAllSummaries();
+            renderAllPosts();
+            showToast('Currency updated');
+        }
+        function convertUSD(amount) {
+            if (currentCurrency === 'USD') return amount;
+            const rate = exchangeRates[currentCurrency] || 1;
+            return amount * rate;
+        }
+        function formatMoney(amount, currency) {
+            const symbols = { GBP: '£', USD: '$', AUD: '$', CAD: '$' };
+            return symbols[currency] + amount.toFixed(2);
+        }
+
+        // ========== DARK MODE ==========
+        function loadDarkMode() {
+            const isDark = localStorage.getItem('noiseTracker_darkMode') === 'true';
+            if (isDark) {
+                document.documentElement.classList.add('dark');
+                document.getElementById('dark-mode-toggle').textContent = 'On';
+            }
+        }
+        function toggleDarkMode() {
+            const isDark = document.documentElement.classList.toggle('dark');
+            localStorage.setItem('noiseTracker_darkMode', isDark);
+            document.getElementById('dark-mode-toggle').textContent = isDark ? 'On' : 'Off';
+        }
+
+        // ========== PAGE NAVIGATION ==========
+        let currentPage = 'calendar-page';
+        function switchPage(pageId) {
+            document.getElementById(currentPage).classList.remove('active');
+            document.getElementById(currentPage).style.display = 'none';
+            document.querySelectorAll('.nav-btn, .bottom-nav button').forEach(btn => btn.classList.remove('active'));
+            
+            currentPage = pageId;
+            document.getElementById(pageId).classList.add('active');
+            document.getElementById(pageId).style.display = 'block';
+            
+            document.querySelectorAll(`[data-page="${pageId}"]`).forEach(btn => btn.classList.add('active'));
+            
+            const backBtn = document.getElementById('back-button');
+            if (pageId === 'calendar-page') {
+                backBtn.classList.add('hidden');
+            } else {
+                backBtn.classList.remove('hidden');
+            }
+            
+            if (pageId === 'summaries-page') updateAllSummaries();
+            if (pageId === 'earnings-page') renderAllPosts();
+        }
+        function goBack() {
+            switchPage('calendar-page');
+        }
+
+        // ========== CALENDAR ==========
+        function renderCalendar() {
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth();
+            document.getElementById('current-month').textContent = 
+                new Date(year, month).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+            
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const grid = document.getElementById('calendar-grid');
+            grid.innerHTML = '';
+            
+            for (let i = 0; i < firstDay; i++) {
+                const empty = document.createElement('div');
+                empty.className = 'calendar-day empty';
+                grid.appendChild(empty);
+            }
+            
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+                const dayEl = document.createElement('div');
+                dayEl.className = 'calendar-day no-select';
+                dayEl.textContent = day;
+                
+                const hasPosts = posts.some(p => p.date === dateStr);
+                if (hasPosts) dayEl.classList.add('has-posts');
+                if (selectedDate === dateStr) dayEl.classList.add('selected');
+                
+                dayEl.onclick = () => selectDate(dateStr, day);
+                grid.appendChild(dayEl);
+            }
+        }
+        function changeMonth(delta) {
+            currentDate.setMonth(currentDate.getMonth() + delta);
+            renderCalendar();
+        }
+        function selectDate(dateStr, dayNum) {
+            selectedDate = dateStr;
+            document.getElementById('selected-date-title').textContent = 
+                new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+            
+            renderPostsForDate(dateStr);
+            document.getElementById('add-post-toggle').style.display = 'block';
+            document.getElementById('add-post-form').classList.add('hidden');
+            renderCalendar();
+        }
+
+        // ========== POSTS ==========
+        function renderPostsForDate(dateStr) {
+            const dayPosts = posts.filter(p => p.date === dateStr);
+            const list = document.getElementById('posts-list');
+            
+            if (dayPosts.length === 0) {
+                list.innerHTML = '<p style="color: var(--text-muted); font-size: 14px;">No posts for this day yet ✨</p>';
+                return;
+            }
+            
+            list.innerHTML = dayPosts.map((post, idx) => {
+                const brand = brands.find(b => b.id === post.brandId);
+                const rate = post.rateType === 'normal' ? brand?.normalRate : brand?.boostedRate;
+                const earnings = (post.views / 1000) * rate;
+                const localEarnings = convertUSD(earnings);
+                
+                return `
+                    <div class="post-item">
+                        <div class="post-row">
+                            <span class="post-brand">${brand?.name || 'Unknown Brand'}</span>
+                            <span class="post-type ${post.rateType === 'normal' ? 'normal-tag' : 'boosted-tag'}">${post.rateType === 'normal' ? '⚪ Normal' : '🟡 Boosted'}</span>
+                        </div>
+                        <div class="post-details">
+                            ${post.views.toLocaleString()} views
+                            ${post.likes ? ` • ${post.likes} likes` : ''}
+                            ${post.comments ? ` • ${post.comments} comments` : ''}
+                        </div>
+                        <div class="post-row">
+                            <span></span>
+                            <span class="post-earnings">${formatMoney(localEarnings, currentCurrency)}</span>
+                        </div>
+                        <button onclick="deletePost('${post.id}')" style="background:none; border:none; color:#c62828; cursor:pointer; font-size:14px; margin-top:4px; min-height:44px;">Delete</button>
+                    </div>
+                `;
+            }).join('');
+        }
+        function toggleAddPostForm() {
+            const form = document.getElementById('add-post-form');
+            form.classList.toggle('hidden');
+            if (!form.classList.contains('hidden')) {
+                document.getElementById('post-brand').value = '';
+                document.getElementById('post-link').value = '';
+                document.getElementById('post-views').value = '';
+                document.getElementById('post-likes').value = '';
+                document.getElementById('post-comments').value = '';
+                document.getElementById('post-shares').value = '';
+            }
+        }
+        function selectRate(type) {
+            selectedRateType = type;
+            document.getElementById('rate-normal').classList.toggle('active', type === 'normal');
+            document.getElementById('rate-boosted').classList.toggle('active', type === 'boosted');
+        }
+        function savePost() {
+            const brandId = document.getElementById('post-brand').value;
+            const views = parseInt(document.getElementById('post-views').value) || 0;
+            const likes = parseInt(document.getElementById('post-likes').value) || 0;
+            const comments = parseInt(document.getElementById('post-comments').value) || 0;
+            const shares = parseInt(document.getElementById('post-shares').value) || 0;
+            const link = document.getElementById('post-link').value;
+            
+            if (!brandId) { showToast('Please select a brand'); return; }
+            if (!selectedDate) { showToast('Please select a date first'); return; }
+            if (views <= 0) { showToast('Please enter a number of views'); return; }
+            
+            const newPost = {
+                id: Date.now().toString(),
+                date: selectedDate,
+                brandId,
+                rateType: selectedRateType,
+                views,
+                likes,
+                comments,
+                shares,
+                link
+            };
+            
+            posts.push(newPost);
+            savePosts();
+            
+            renderPostsForDate(selectedDate);
+            renderCalendar();
+            updateAllSummaries();
+            toggleAddPostForm();
+            showToast('Post saved! ✨');
+        }
+        function deletePost(postId) {
+            if (!confirm('Delete this post? This cannot be undone.')) return;
+            posts = posts.filter(p => p.id !== postId);
+            savePosts();
+            renderPostsForDate(selectedDate);
+            renderCalendar();
+            updateAllSummaries();
+            showToast('Post deleted');
+        }
+
+        // ========== BRANDS ==========
+        function addBrand() {
+            const name = document.getElementById('brand-name').value.trim();
+            const normalRate = parseFloat(document.getElementById('brand-normal-rate').value);
+            const boostedRate = parseFloat(document.getElementById('brand-boosted-rate').value);
+            
+            if (!name) { showToast('Please enter a brand name'); return; }
+            if (!normalRate || !boostedRate) { showToast('Please enter both rates'); return; }
+            
+            const newBrand = {
+                id: Date.now().toString(),
+                name,
+                normalRate,
+                boostedRate
+            };
+            
+            brands.push(newBrand);
+            saveBrands();
+            
+            document.getElementById('brand-name').value = '';
+            document.getElementById('brand-normal-rate').value = '';
+            document.getElementById('brand-boosted-rate').value = '';
+            
+            renderBrandsList();
+            updateBrandDropdown();
+            updateAllSummaries();
+            showToast('Brand added! ✨');
+        }
+        function deleteBrand(brandId) {
+            if (!confirm('Delete this brand? Posts linked to it will remain but show as "Unknown Brand".')) return;
+            brands = brands.filter(b => b.id !== brandId);
+            saveBrands();
+            renderBrandsList();
+            updateBrandDropdown();
+            updateAllSummaries();
+            showToast('Brand deleted');
+        }
+        function renderBrandsList() {
+            const list = document.getElementById('brands-list');
+            if (brands.length === 0) {
+                list.innerHTML = '<p style="color: var(--text-muted); font-size: 14px;">No brands added yet — add your first one below!</p>';
+                return;
+            }
+            
+            list.innerHTML = brands.map(brand => `
+                <div class="brand-item">
+                    <div class="brand-info">
+                        <h4>${brand.name}</h4>
+                        <p>Normal: $${brand.normalRate}/1000 • Boosted: $${brand.boostedRate}/1000</p>
+                    </div>
+                    <button class="delete-btn no-select" onclick="deleteBrand('${brand.id}')">×</button>
+                </div>
+            `).join('');
+        }
+        function updateBrandDropdown() {
+            const select = document.getElementById('post-brand');
+            select.innerHTML = '<option value="">-- Select a brand --</option>' +
+                brands.map(b => `<option value="${b.id}">${b.name}</option>`).join('');
+        }
+
+        // ========== SUMMARIES ==========
+        function updateAllSummaries() {
+            const now = new Date();
+            const currentMonth = now.getMonth();
+            const currentYear = now.getFullYear();
+            
+            const monthPosts = posts.filter(p => {
+                const d = new Date(p.date + 'T00:00:00');
+                return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+            });
+            updateSummarySection('monthly', monthPosts, currentMonth, currentYear);
+            
+            const yearPosts = posts.filter(p => {
+                const d = new Date(p.date + 'T00:00:00');
+                return d.getFullYear() === currentYear;
+            });
+            updateSummarySection('yearly', yearPosts, null, currentYear);
+            
+            updateBrandPerformance();
+            updateEarningsPage();
+            renderAllPosts();
+        }
+        function updateSummarySection(period, filteredPosts, monthIdx, year) {
+            const totalPosts = filteredPosts.length;
+            const totalViews = filteredPosts.reduce((sum, p) => sum + p.views, 0);
+            
+            let totalUSD = 0;
+            const brandTotals = {};
+            
+            filteredPosts.forEach(post => {
+                const brand = brands.find(b => b.id === post.brandId);
+                if (!brand) return;
+                
+                const rate = post.rateType === 'normal' ? brand.normalRate : brand.boostedRate;
+                const earnings = (post.views / 1000) * rate;
+                totalUSD += earnings;
+                
+                if (!brandTotals[brand.id]) {
+                    brandTotals[brand.id] = { name: brand.name, posts: 0, views: 0, earnings: 0 };
+                }
+                brandTotals[brand.id].posts++;
+                brandTotals[brand.id].views += post.views;
+                brandTotals[brand.id].earnings += earnings;
+            });
+            
+            const totalLocal = convertUSD(totalUSD);
+            
+            document.getElementById(`${period}-posts`).textContent = totalPosts;
+            document.getElementById(`${period}-views`).textContent = totalViews.toLocaleString();
+            document.getElementById(`${period}-earnings-usd`).textContent = formatMoney(totalUSD, 'USD');
+            document.getElementById(`${period}-earnings-local`).textContent = formatMoney(totalLocal, currentCurrency);
+            
+            const breakdownEl = document.getElementById(`${period}-brand-breakdown`);
+            if (Object.keys(brandTotals).length === 0) {
+                breakdownEl.innerHTML = '<p style="color: var(--text-muted); font-size: 14px;">No posts yet — add your first one above!</p>';
+            } else {
+                breakdownEl.innerHTML = Object.values(brandTotals).map(b => `
+                    <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border);">
+                        <span>${b.name} • ${b.posts} post${b.posts !== 1 ? 's' : ''} • ${b.views.toLocaleString()} views</span>
+                        <span style="font-weight:500;">${formatMoney(convertUSD(b.earnings), currentCurrency)}</span>
+                    </div>
+                `).join('');
+            }
+            
+            if (period === 'monthly') {
+                document.getElementById('summary-month').textContent = 
+                    new Date(year, monthIdx).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+            }
+        }
+        function updateBrandPerformance() {
+            const perfEl = document.getElementById('brand-performance');
+            if (brands.length === 0 || posts.length === 0) {
+                perfEl.innerHTML = '<p style="color: var(--text-muted); font-size: 14px;">Add brands and posts to see your stats</p>';
+                return;
+            }
+            
+            const brandStats = brands.map(brand => {
+                const brandPosts = posts.filter(p => p.brandId === brand.id);
+                if (brandPosts.length === 0) return null;
+                
+                const totalEarnings = brandPosts.reduce((sum, p) => {
+                    const rate = p.rateType === 'normal' ? brand.normalRate : brand.boostedRate;
+                    return sum + (p.views / 1000) * rate;
+                }, 0);
+                
+                return {
+                    name: brand.name,
+                    posts: brandPosts.length,
+                    avgPerPost: totalEarnings / brandPosts.length
+                };
+            }).filter(Boolean).sort((a, b) => b.avgPerPost - a.avgPerPost);
+            
+            perfEl.innerHTML = brandStats.map((b, i) => `
+                <div style="padding: 10px 0; border-bottom: 1px solid var(--border);">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span><strong>${i + 1}. ${b.name}</strong> — ${b.posts} post${b.posts !== 1 ? 's' : ''}</span>
+                        <span style="color: var(--primary); font-weight:500;">Avg ${formatMoney(convertUSD(b.avgPerPost), currentCurrency)}/post</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+        function updateEarningsPage() {
+            let normalTotal = 0, boostedTotal = 0;
+            posts.forEach(post => {
+                const brand = brands.find(b => b.id === post.brandId);
+                if (!brand) return;
+                const rate = post.rateType === 'normal' ? brand.normalRate : brand.boostedRate;
+                const earnings = (post.views / 1000) * rate;
+                if (post.rateType === 'normal') normalTotal += earnings;
+                else boostedTotal += earnings;
+            });
+            
+            document.getElementById('total-normal').textContent = formatMoney(convertUSD(normalTotal), currentCurrency);
+            document.getElementById('total-boosted').textContent = formatMoney(convertUSD(boostedTotal), currentCurrency);
+            document.getElementById('grand-total').textContent = formatMoney(convertUSD(normalTotal + boostedTotal), currentCurrency);
+        }
+        function renderAllPosts() {
+            const list = document.getElementById('all-posts-list');
+            if (posts.length === 0) {
+                list.innerHTML = '<p style="color: var(--text-muted); font-size: 14px;">No posts logged yet</p>';
+                return;
+            }
+            
+            const sorted = [...posts].sort((a, b) => new Date(b.date) - new Date(a.date));
+            list.innerHTML = sorted.map(post => {
+                const brand = brands.find(b => b.id === post.brandId);
+                const rate = post.rateType === 'normal' ? brand?.normalRate : brand?.boostedRate;
+                const earnings = (post.views / 1000) * rate;
+                const localEarnings = convertUSD(earnings);
+                
+                return `
+                    <div style="padding: 12px 0; border-bottom: 1px solid var(--border);">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span style="font-size: 13px; color: var(--text-muted);">${post.date}</span>
+                            <span class="post-type ${post.rateType === 'normal' ? 'normal-tag' : 'boosted-tag'}">${post.rateType === 'normal' ? 'Normal' : 'Boosted'}</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
+                            <span style="font-weight:500
